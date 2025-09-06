@@ -3,8 +3,11 @@ import Header from './components/Header';
 import UploadSection from './components/UploadSection';
 import AnalysisResults from './components/AnalysisResults';
 import SubscriptionModal from './components/SubscriptionModal';
+import AuthModal from './components/AuthModal';
 import { useSubscription } from './hooks/useSubscription';
+import { useAuth } from './contexts/AuthContext';
 import { analyzeDocuments } from './utils/aiAnalysis';
+import { saveDocument, saveScanResult } from './lib/supabase';
 
 function App() {
   const [documents, setDocuments] = useState({
@@ -16,8 +19,10 @@ function App() {
   const [analysisResults, setAnalysisResults] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   const { subscription, scansUsed, incrementScans, upgradeToPro } = useSubscription();
+  const { user, userProfile, loading: authLoading } = useAuth();
 
   const handleDocumentChange = (type, content) => {
     setDocuments(prev => ({
@@ -27,8 +32,15 @@ function App() {
   };
 
   const handleAnalyze = async () => {
+    // Check if user is authenticated (in production mode)
+    if (import.meta.env.VITE_SUPABASE_URL && !user) {
+      setShowAuthModal(true);
+      return;
+    }
+
     // Check if user has exceeded free tier
-    if (subscription.type === 'free' && scansUsed >= 3) {
+    const currentSubscription = userProfile?.subscription_status || subscription.type;
+    if (currentSubscription === 'free' && scansUsed >= 3) {
       setShowSubscriptionModal(true);
       return;
     }
@@ -45,6 +57,21 @@ function App() {
       const results = await analyzeDocuments(documents);
       setAnalysisResults(results);
       incrementScans();
+
+      // Save to database if user is authenticated
+      if (user) {
+        try {
+          // Save documents
+          const resumeDoc = await saveDocument(user.id, 'resume', documents.resume);
+          const jobDescDoc = await saveDocument(user.id, 'job_description', documents.jobDescription);
+          
+          // Save scan result
+          await saveScanResult(user.id, resumeDoc.document_id, jobDescDoc.document_id, results);
+        } catch (dbError) {
+          console.error('Failed to save to database:', dbError);
+          // Don't fail the analysis if database save fails
+        }
+      }
     } catch (error) {
       console.error('Analysis failed:', error);
       alert('Analysis failed. Please try again or check your API configuration.');
@@ -58,12 +85,26 @@ function App() {
     setShowSubscriptionModal(false);
   };
 
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header 
-        subscription={subscription}
+        subscription={userProfile?.subscription_status || subscription}
         scansUsed={scansUsed}
         onUpgrade={() => setShowSubscriptionModal(true)}
+        user={user}
+        onSignIn={() => setShowAuthModal(true)}
       />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -83,7 +124,7 @@ function App() {
             onDocumentChange={handleDocumentChange}
             onAnalyze={handleAnalyze}
             isAnalyzing={isAnalyzing}
-            canAnalyze={subscription.type === 'pro' || scansUsed < 3}
+            canAnalyze={(userProfile?.subscription_status || subscription.type) === 'pro' || scansUsed < 3}
           />
           
           <AnalysisResults
@@ -100,6 +141,13 @@ function App() {
           onClose={() => setShowSubscriptionModal(false)}
           onUpgrade={handleUpgradeSubscription}
           scansUsed={scansUsed}
+        />
+      )}
+
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
         />
       )}
     </div>

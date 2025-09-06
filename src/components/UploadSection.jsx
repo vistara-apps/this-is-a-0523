@@ -1,5 +1,6 @@
-import React from 'react';
-import { Upload, FileText, Briefcase, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Upload, FileText, Briefcase, Sparkles, Type } from 'lucide-react';
+import FileUpload from './FileUpload';
 
 const UploadSection = ({ 
   documents, 
@@ -8,12 +9,19 @@ const UploadSection = ({
   isAnalyzing, 
   canAnalyze 
 }) => {
-  const handleFileUpload = (type, file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      onDocumentChange(type, e.target.result);
-    };
-    reader.readAsText(file);
+  const [uploadMode, setUploadMode] = useState({
+    resume: 'text', // 'file' or 'text'
+    coverLetter: 'text',
+    jobDescription: 'text'
+  });
+
+  const toggleUploadMode = (type) => {
+    setUploadMode(prev => ({
+      ...prev,
+      [type]: prev[type] === 'file' ? 'text' : 'file'
+    }));
+    // Clear content when switching modes
+    onDocumentChange(type, '');
   };
 
   return (
@@ -27,62 +35,98 @@ const UploadSection = ({
         {/* Resume Upload */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text mb-2 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Resume *
-            </label>
-            <div className="space-y-2">
-              <input
-                type="file"
-                accept=".txt,.doc,.docx"
-                onChange={(e) => e.target.files[0] && handleFileUpload('resume', e.target.files[0])}
-                className="block w-full text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary-600"
-              />
-              <div className="relative">
-                <textarea
-                  value={documents.resume}
-                  onChange={(e) => onDocumentChange('resume', e.target.value)}
-                  placeholder="Or paste your resume text here..."
-                  className="input-field min-h-[120px] resize-none"
-                />
-              </div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-text flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Resume *
+              </label>
+              <button
+                onClick={() => toggleUploadMode('resume')}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {uploadMode.resume === 'file' ? <Type className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+                {uploadMode.resume === 'file' ? 'Switch to text' : 'Upload file'}
+              </button>
             </div>
+            
+            {uploadMode.resume === 'file' ? (
+              <FileUpload
+                onFileContent={(content) => onDocumentChange('resume', content)}
+                label=""
+                accept=".pdf,.docx,.txt"
+              />
+            ) : (
+              <textarea
+                value={documents.resume}
+                onChange={(e) => onDocumentChange('resume', e.target.value)}
+                placeholder="Paste your resume text here..."
+                className="input-field min-h-[120px] resize-none"
+              />
+            )}
           </div>
 
           {/* Cover Letter Upload */}
           <div>
-            <label className="block text-sm font-medium text-text mb-2 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Cover Letter (Optional)
-            </label>
-            <div className="space-y-2">
-              <input
-                type="file"
-                accept=".txt,.doc,.docx"
-                onChange={(e) => e.target.files[0] && handleFileUpload('coverLetter', e.target.files[0])}
-                className="block w-full text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary-600"
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-text flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Cover Letter (Optional)
+              </label>
+              <button
+                onClick={() => toggleUploadMode('coverLetter')}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {uploadMode.coverLetter === 'file' ? <Type className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+                {uploadMode.coverLetter === 'file' ? 'Switch to text' : 'Upload file'}
+              </button>
+            </div>
+            
+            {uploadMode.coverLetter === 'file' ? (
+              <FileUpload
+                onFileContent={(content) => onDocumentChange('coverLetter', content)}
+                label=""
+                accept=".pdf,.docx,.txt"
               />
+            ) : (
               <textarea
                 value={documents.coverLetter}
                 onChange={(e) => onDocumentChange('coverLetter', e.target.value)}
-                placeholder="Or paste your cover letter text here..."
+                placeholder="Paste your cover letter text here..."
                 className="input-field min-h-[100px] resize-none"
               />
-            </div>
+            )}
           </div>
 
           {/* Job Description */}
           <div>
-            <label className="block text-sm font-medium text-text mb-2 flex items-center gap-2">
-              <Briefcase className="w-4 h-4" />
-              Job Description *
-            </label>
-            <textarea
-              value={documents.jobDescription}
-              onChange={(e) => onDocumentChange('jobDescription', e.target.value)}
-              placeholder="Paste the job description you're applying for..."
-              className="input-field min-h-[150px] resize-none"
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-text flex items-center gap-2">
+                <Briefcase className="w-4 h-4" />
+                Job Description *
+              </label>
+              <button
+                onClick={() => toggleUploadMode('jobDescription')}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {uploadMode.jobDescription === 'file' ? <Type className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+                {uploadMode.jobDescription === 'file' ? 'Switch to text' : 'Upload file'}
+              </button>
+            </div>
+            
+            {uploadMode.jobDescription === 'file' ? (
+              <FileUpload
+                onFileContent={(content) => onDocumentChange('jobDescription', content)}
+                label=""
+                accept=".pdf,.docx,.txt"
+              />
+            ) : (
+              <textarea
+                value={documents.jobDescription}
+                onChange={(e) => onDocumentChange('jobDescription', e.target.value)}
+                placeholder="Paste the job description you're applying for..."
+                className="input-field min-h-[150px] resize-none"
+              />
+            )}
           </div>
         </div>
 
