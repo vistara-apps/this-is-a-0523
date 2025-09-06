@@ -1,5 +1,154 @@
-// Mock AI analysis function - in production, this would call OpenAI API
+// AI analysis function with both real OpenAI API and mock fallback
 export const analyzeDocuments = async (documents) => {
+  const { resume, coverLetter, jobDescription } = documents;
+
+  // Check if OpenAI API key is configured
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  
+  if (apiKey && apiKey !== 'your-openai-api-key-here') {
+    try {
+      return await analyzeWithOpenAI(documents);
+    } catch (error) {
+      console.error('OpenAI analysis failed, falling back to mock:', error);
+      return await analyzeWithMock(documents);
+    }
+  } else {
+    console.log('OpenAI API key not configured, using mock analysis');
+    return await analyzeWithMock(documents);
+  }
+};
+
+// Real OpenAI analysis
+const analyzeWithOpenAI = async (documents) => {
+  const { resume, coverLetter, jobDescription } = documents;
+  
+  const OpenAI = (await import('openai')).default;
+  const openai = new OpenAI({
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true,
+  });
+
+  try {
+    // Keyword Analysis
+    const keywordPrompt = `
+      Analyze the following resume against this job description and identify:
+      1. Keywords that are already present in the resume
+      2. Important keywords missing from the resume
+      
+      Job Description: ${jobDescription}
+      Resume: ${resume}
+      
+      Return as JSON: { "matched": ["keyword1", "keyword2"], "missing": ["keyword3", "keyword4"] }
+    `;
+    
+    const keywordResponse = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: keywordPrompt }],
+      temperature: 0.3,
+      max_tokens: 1000
+    });
+    
+    let keywordAnalysis;
+    try {
+      keywordAnalysis = JSON.parse(keywordResponse.choices[0].message.content);
+    } catch (parseError) {
+      console.error('Failed to parse keyword analysis:', parseError);
+      keywordAnalysis = { matched: [], missing: [] };
+    }
+    
+    // Skills Gap Analysis
+    const skillsPrompt = `
+      Compare the skills and experience in this resume against the job requirements.
+      Identify gaps and provide suggestions.
+      
+      Job Description: ${jobDescription}
+      Resume: ${resume}
+      
+      Return as JSON array: [{"skill": "SkillName", "severity": "high|medium|low", "suggestion": "advice", "alternatives": ["alt1", "alt2"]}]
+    `;
+    
+    const skillsResponse = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: skillsPrompt }],
+      temperature: 0.3,
+      max_tokens: 1500
+    });
+    
+    let skillsGap;
+    try {
+      skillsGap = JSON.parse(skillsResponse.choices[0].message.content);
+    } catch (parseError) {
+      console.error('Failed to parse skills gap analysis:', parseError);
+      skillsGap = [];
+    }
+    
+    // Content Rewriting
+    const rewritePrompt = `
+      Rewrite this resume to better match the job description.
+      Improve clarity, impact, and ATS optimization while maintaining truthfulness.
+      Keep the same structure but enhance the language and keywords.
+      
+      Job Description: ${jobDescription}
+      Resume: ${resume}
+      
+      Return the rewritten resume:
+    `;
+    
+    const rewriteResponse = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: rewritePrompt }],
+      temperature: 0.5,
+      max_tokens: 2000
+    });
+    
+    const rewrittenResume = rewriteResponse.choices[0].message.content;
+    
+    // Cover letter rewriting (if provided)
+    let rewrittenCoverLetter = null;
+    if (coverLetter) {
+      const coverLetterPrompt = `
+        Rewrite this cover letter to better match the job description.
+        Improve tone, relevance, and persuasiveness while maintaining the original intent.
+        
+        Job Description: ${jobDescription}
+        Cover Letter: ${coverLetter}
+        
+        Return the rewritten cover letter:
+      `;
+      
+      const coverLetterResponse = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: coverLetterPrompt }],
+        temperature: 0.5,
+        max_tokens: 1500
+      });
+      
+      rewrittenCoverLetter = coverLetterResponse.choices[0].message.content;
+    }
+    
+    return {
+      keywordAnalysis,
+      skillsGap,
+      rewrittenContent: {
+        resume: rewrittenResume,
+        coverLetter: rewrittenCoverLetter
+      },
+      improvements: [
+        'Enhanced action verbs and quantified achievements',
+        'Optimized keyword placement for ATS compatibility',
+        'Improved clarity and professional tone',
+        'Better alignment with job requirements'
+      ]
+    };
+    
+  } catch (error) {
+    console.error('AI Analysis failed:', error);
+    throw new Error('Failed to analyze documents. Please check your API configuration.');
+  }
+};
+
+// Mock analysis fallback
+const analyzeWithMock = async (documents) => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 2000));
 

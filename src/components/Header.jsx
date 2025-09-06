@@ -1,7 +1,9 @@
 import React from 'react';
-import { Brain, Crown, Zap } from 'lucide-react';
+import { Brain, Crown, Zap, User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const Header = ({ subscription, scansUsed, onUpgrade }) => {
+const Header = ({ subscription, scansUsed, onUpgrade, user, onSignIn }) => {
+  const { signOut, mockSignOut } = useAuth();
   return (
     <header className="bg-surface border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -16,41 +18,69 @@ const Header = ({ subscription, scansUsed, onUpgrade }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Usage indicator */}
-            <div className="hidden sm:flex items-center gap-2 text-sm">
-              {subscription.type === 'free' ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-2 h-2 rounded-full ${
-                          i < scansUsed ? 'bg-primary' : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-muted">
-                    {scansUsed}/3 free scans
-                  </span>
+            {/* User section */}
+            {user ? (
+              <div className="flex items-center gap-4">
+                {/* Usage indicator */}
+                <div className="hidden sm:flex items-center gap-2 text-sm">
+                  {subscription.type === 'free' ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        {[...Array(3)].map((_, i) => (
+                          <div
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${
+                              i < scansUsed ? 'bg-primary' : 'bg-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-muted">
+                        {scansUsed}/3 free scans
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-accent-600">
+                      <Crown className="w-4 h-4" />
+                      <span className="font-medium">Pro</span>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 text-accent-600">
-                  <Crown className="w-4 h-4" />
-                  <span className="font-medium">Pro</span>
-                </div>
-              )}
-            </div>
 
-            {/* Upgrade button */}
-            {subscription.type === 'free' && (
+                {/* Upgrade button */}
+                {subscription.type === 'free' && (
+                  <button
+                    onClick={onUpgrade}
+                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="hidden sm:inline">Upgrade to Pro</span>
+                    <span className="sm:hidden">Pro</span>
+                  </button>
+                )}
+
+                {/* User menu */}
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-2 text-sm text-muted">
+                    <User className="w-4 h-4" />
+                    <span>{user.email}</span>
+                  </div>
+                  <button
+                    onClick={() => import.meta.env.VITE_SUPABASE_URL ? signOut() : mockSignOut()}
+                    className="p-2 text-muted hover:text-text hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
-                onClick={onUpgrade}
+                onClick={onSignIn}
                 className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
               >
-                <Zap className="w-4 h-4" />
-                <span className="hidden sm:inline">Upgrade to Pro</span>
-                <span className="sm:hidden">Pro</span>
+                <User className="w-4 h-4" />
+                Sign In
               </button>
             )}
           </div>
